@@ -1,6 +1,6 @@
 CXX = g++
 CXXFLAGS = 
-LINKS = -lsqlite3
+LINKS = -lsqlite3 -lgcrypt
 
 all: run
 
@@ -12,6 +12,10 @@ mail: mail.o
 
 run: mail
 	./mail
+
+gcrypt_install:
+	sudo apt-get update
+	sudo apt-get install libgcrypt20-dev
 
 clean:
 	rm -rf *.o *.~ mail

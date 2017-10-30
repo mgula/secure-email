@@ -1,4 +1,6 @@
 #include <iostream>
+
+#include <gcrypt.h>
 #include <sqlite3.h>
 
 using namespace std;
