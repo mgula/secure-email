@@ -49,6 +49,7 @@ void register_user() {
 void check_messages() {
     cout << "Hello! You have one new message from Boba! Would you like to read the message? (Y/N) ";
     string read;
+    cin >> read;
     if(read[0] == 'Y' || read[0] == 'y'){
         //read();
     }
@@ -59,6 +60,7 @@ void check_messages() {
     
     cout << "Would you like to write a message? (Y/N) ";
     string write;
+    cin >> write;
     if(write[0] == 'Y' || write[0] == 'y'){
         //write();
     }
