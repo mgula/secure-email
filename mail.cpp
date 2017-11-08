@@ -1,7 +1,8 @@
 #include <iostream>
-
+#include <string.h>
 #include <gcrypt.h>
 #include <sqlite3.h>
+#include <stdio.h>
 
 using namespace std;
 
@@ -11,6 +12,8 @@ bool logged_in = false;
 
 sqlite3* db;
 const char* db_name = "secure.db";
+sqlite3_stmt *stmt;
+int rc;
 
 void login() {
     cout << "Please enter your username: ";
@@ -32,6 +35,67 @@ void login() {
     }
 }
 
+void sql_stmt(const char* stmt) {
+  char *errmsg;
+  int   ret;
+
+  ret = sqlite3_exec(db, stmt, 0, 0, &errmsg);
+
+  if(ret != SQLITE_OK) {
+    printf("Error in statement: %s [%s].\n", stmt, errmsg);
+  }
+}
+
+bool open_db_connection(){
+    sqlite3_open(db_name, &db);
+
+    if(db == 0) {
+        printf("\nCould not open database.\n");
+        return false;
+    }
+    return true;
+}
+
+bool close_db_connection(){
+    sqlite3_close(db);
+
+    if(db == 0) {
+        printf("\nCould not close database.\n");
+        return false;
+    }
+    return true;
+}
+
+bool prepare_statement(const char* query){
+    int return_code;
+    return_code = sqlite3_prepare(
+    db, 
+    query,  // stmt
+    -1, // If than zero, then stmt is read up to the first nul terminator
+    &stmt,
+    NULL  // Pointer to unused portion of stmt
+    );
+    if ( return_code != SQLITE_OK) {
+        printf("\nCould not prepare statement. Return code: %d\n", return_code);
+        return false;
+    }
+    return true;
+}
+
+bool bind_text(int index, string text){
+    int ret_code = sqlite3_bind_text(stmt,index,text.c_str(),text.length(),SQLITE_STATIC);
+    if(ret_code != SQLITE_OK){
+        return false;
+    }
+    return true;
+}
+
+bool validate_credentials(string un, string pw){
+    //0 < len(username) < 20 
+    //0 < len(password) < 30
+    return un.length() > 0 && pw.length() > 0 && un.length() < 20 && pw.length() < 30;
+}
+
 void register_user() {
     cout << "Enter a username: ";
     string name;
@@ -39,7 +103,28 @@ void register_user() {
     cout << "Select a password: ";
     string password;
     cin >> password;
-    cout << "Welcome new user!";
+
+    bool is_open = open_db_connection();
+    bool valid_creds = validate_credentials(name, password);
+    
+    if(is_open && valid_creds){
+        bool prepared = prepare_statement("insert into user ( NAME , PASSWORD, SALT ) values (?, ?, 'salt')");
+        if( prepared ){
+            cout << "Prepared" << endl;
+            bool bind1 = bind_text(1, name);
+            bool bind2 = bind_text(2, password);
+            
+            if (sqlite3_step(stmt) != SQLITE_DONE) {
+                printf("\nCould not step (execute) stmt.\n");
+                return;
+            }
+            else{
+                printf("Registered user: %s\n", name.c_str());
+            }
+        }
+        cout << "Finished registration" << endl;
+        close_db_connection();
+    }
     return;
     
     //just a skeleton code for registering
@@ -127,6 +212,7 @@ int main() {
         if (!logged_in) {
             if (input[0] == 'R' || input[0] == 'r') {
                 //register
+                register_user();
                 cout << "Enter r to register or l to login: ";
             } else if (input[0] == 'L' || input[0] == 'l') {
                 login();
