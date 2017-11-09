@@ -3,6 +3,8 @@
 #include <gcrypt.h>
 #include <sqlite3.h>
 #include <stdio.h>
+#include <openssl/rand.h>
+#include <sodium.h>
 
 using namespace std;
 
@@ -13,7 +15,9 @@ bool logged_in = false;
 sqlite3* db;
 const char* db_name = "secure.db";
 sqlite3_stmt *stmt;
+char hashed_password[crypto_pwhash_scryptsalsa208sha256_STRBYTES];
 int rc;
+
 
 void login() {
     cout << "Please enter your username: ";
@@ -108,6 +112,7 @@ void register_user() {
     bool valid_creds = validate_credentials(name, password);
     
     if(is_open && valid_creds){
+        //Encrypt name & salt
         bool prepared = prepare_statement("insert into user ( NAME , PASSWORD, SALT ) values (?, ?, 'salt')");
         if( prepared ){
             cout << "Prepared" << endl;
@@ -189,9 +194,56 @@ void help_info() {
     }
 }
 
+void raw2hex(char* input, char* output, int input_size){
+  int i;
+  //the output needs to have room for 2*input_size chars
+  for(i = 0; i<input_size; i++){
+    sprintf(output+i*2, "%02X", input[i]);
+  }
+};
+
+void print_bytes(const void *object, size_t size)
+{
+  // This is for C++; in C just drop the static_cast<>() and assign.
+  const unsigned char * const bytes = static_cast<const unsigned char *>(object);
+  size_t i;
+
+  for(i = 0; i < size; i++)
+  {
+    printf("%02X", bytes[i]);
+  }
+  printf("\n");
+}
+
+bool encrypt(string pass){
+    int ret_value = crypto_pwhash_scryptsalsa208sha256_str(hashed_password, pass.c_str(), pass.length(),crypto_pwhash_scryptsalsa208sha256_OPSLIMIT_MIN,crypto_pwhash_scryptsalsa208sha256_MEMLIMIT_MIN);
+    if(ret_value != 0){
+        return false;
+    }
+    return true;
+}
+
+bool verify(string pass, string hash){
+    int ret_value = crypto_pwhash_scryptsalsa208sha256_str_verify(hash.c_str(), pass.c_str(), pass.length());
+    if(ret_value != 0){
+        return false;
+    }
+    return true;
+}
+
 int main() {
     cout << "Welcome to Gee-Mail. Enter H for a list of commands. " << endl;
     string input;
+    
+    if (sodium_init() < 0) {
+        /* panic! the library couldn't be initialized, it is not safe to use */
+        printf("Panic\n");
+        return 1;
+    }
+    string my_pass = "hey now";
+    bool encrypted = encrypt(my_pass);
+    bool conf = verify(my_pass, encrypted);
+    printf("PASS: %s\nHASH: %s\nVERIFIED: %s\n", my_pass.c_str(), hashed_password, conf ? "true" : "false");
     while (1) {
         cin >> input;
         
