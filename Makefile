@@ -20,14 +20,14 @@ gcrypt_install:
 
 libsodium_install:
 	cd ~/workspace
-	wget https://download.libsodium.org/libsodium/releases/libsodium-stable-2017-11-09.tar.gz
-	tar -xvzf libsodium-stable-2017-11-09.tar.gz
-	cd libsodim-stable/
-	./configure
+	wget https://download.libsodium.org/libsodium/releases/LATEST.tar.gz
+	tar -xvzf LATEST.tar.gz
+	rm LATEST.tar.gz
+	cd libsodium-stable/
+	./configure 
 	make && make check
 	sudo make install
-	sudo ldconfig
-
+	
 clean:
 	rm -rf *.o *.~ mail
 
