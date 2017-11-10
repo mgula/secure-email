@@ -258,7 +258,7 @@ int main() {
         printf("Sodium didn't initialize, Panic!\n");
         return 1;
     }
-    
+
     while (1) {
         cin >> input;
         
