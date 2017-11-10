@@ -26,7 +26,6 @@ bool bind_text(int index, char* text, int len);
 void encrypt(string, char*, unsigned int);
 bool verify(string pass, char* hash);
 bool check_existing(string user);
-bool validate_credentials(string un, string pw);
 void print_bytes(const void *object, size_t size);
 
 /*Methods that appear in main*/
@@ -38,20 +37,25 @@ void write_message();
 void help_info();
 
 int main() {
-    printf("Welcome to Gee-Mail. Enter H for a list of commands.\n");
-    string input;
-    
+    /*Check sodium status*/
     if (sodium_init() < 0) {
         printf("Sodium may not have been properly installed.\n");
         return 1;
     }
+    
+    /*Establish db connection*/
+    if (!open_db_connection()) {
+        return 1;
+    }
+    
+    printf("Welcome to Gee-Mail. Enter H for a list of commands.\n");
+    string input;
 
     while (1) {
         cin >> input;
         
         /*Check for quit*/
         if (input[0] == 'Q' || input[0] == 'q') {
-            printf("Exiting.\n");
             break;
         }
         
@@ -64,14 +68,12 @@ int main() {
         /*Login, if not logged in*/
         if (!logged_in) {
             if (input[0] == 'R' || input[0] == 'r') {
-                //register
                 register_user();
                 printf("Enter r to register or l to login.\n");
             } else if (input[0] == 'L' || input[0] == 'l') {
                 login();
                 if (logged_in) {
-                    cout << "Welcome, " << current_user << ".\n";
-                    //printf("Welcome, %s.\n", current_user);
+                    printf("Welcome, %s.\n", current_user.c_str());
                 } else {
                     printf("Enter r to register or l to login.\n");
                 }
@@ -82,6 +84,9 @@ int main() {
             //send messages, check messages, open message
         }
     }
+    
+    printf("Closing Gee-Mail.\n");
+    close_db_connection();
     return 0;
 }
 
@@ -117,10 +122,9 @@ void sql_stmt(const char* stmt) {
 }
 
 bool prepare_statement(const char* query) {
-    int return_code;
-    return_code = sqlite3_prepare(db, 
+    int return_code = sqlite3_prepare(db, 
     query,  // stmt
-    -1, // If than zero, then stmt is read up to the first nul terminator
+    -1, // If less than zero, then stmt is read up to the first null terminator
     &stmt,
     NULL); // Pointer to unused portion of stmt
     
@@ -147,7 +151,7 @@ bool bind_text(int index, char* text, int len) {
     return true;
 }
 
-void encrypt(string pass, char* buf, unsigned int ops){
+void encrypt(string pass, char* buf, unsigned int ops) {
     int ret_value = crypto_pwhash_scryptsalsa208sha256_str(buf, 
         pass.c_str(), 
         pass.length(), 
@@ -172,13 +176,16 @@ bool verify(string pass, char* hash) {
 }
 
 bool check_existing(string user) {
+    bool prepared = prepare_statement("select * from user where name = ?");
     
-}
-
-bool validate_credentials(string un, string pw){
-    //0 < len(username) < 20 
-    //0 < len(password) < 30
-    return un.length() > 0 && pw.length() > 0 && un.length() < 20 && pw.length() < 30;
+    if (prepared) {
+        bind_text(1, user);
+        sqlite3_step(stmt);
+        if (sqlite3_column_text(stmt, 0) != NULL) { //if not null, this name has an entry (it's taken)
+                return false;
+        }
+    }
+    return true;
 }
 
 void print_bytes(const void *object, size_t size) {
@@ -193,53 +200,61 @@ void print_bytes(const void *object, size_t size) {
 }
 
 void register_user() {
-    //User input
     printf("Enter a username: ");
     string name;
     cin >> name;
+    
+    bool valid_length = name.length() > 0 && name.length() < 20;
+    bool name_available = check_existing(name);
+    while (!valid_length || !name_available) {
+        if (!valid_length) {
+            printf("Name must be at least 1 character and less than 20 characters.\n");
+        } else if (!name_available) {
+            printf("The username %s is taken.\n", name.c_str());
+        }
+        printf("Enter a username: ");
+        cin >> name;
+        valid_length = name.length() > 0 && name.length() < 20;
+        name_available = check_existing(name);
+    }
+    
     printf("Select a password: ");
     string password;
     cin >> password;
-
-    //Open the db
-    bool is_open = open_db_connection();
-    //Validate credentials
-    bool valid_creds = validate_credentials(name, password);
     
-    if (is_open && valid_creds){
-        //Encrypt passwrd
-        char hash_buffer[crypto_pwhash_scryptsalsa208sha256_STRBYTES];
-        encrypt(password, hash_buffer, AMT_OPERATIONS);
-        bool prepared = prepare_statement("insert into user ( NAME , PASSWORD, SALT ) values (?, ?, 'salt')");
+    while (password.length() == 0 || password.length() > 30) {
+        printf("Password must be at least 1 character and less than 30 characters.\n");
+        cin >> password;
+    }
+    
+    //Encrypt passwrd
+    char hash_buffer[crypto_pwhash_scryptsalsa208sha256_STRBYTES];
+    encrypt(password, hash_buffer, AMT_OPERATIONS);
+    bool prepared = prepare_statement("insert into user ( NAME , PASSWORD, SALT ) values (?, ?, 'salt')");
         
-        if (prepared){
-            bool bind1 = bind_text(1, name);
-            bool bind2 = bind_text(2, hash_buffer, strlen(hash_buffer));
+    if (prepared) {
+        bool bind1 = bind_text(1, name);
+        bool bind2 = bind_text(2, hash_buffer, strlen(hash_buffer));
             
-            //Executed paramaterized query
-            int eval_code = sqlite3_step(stmt);
-            if ( eval_code != SQLITE_DONE) {
-                printf("\nCould not step (execute). Error Code: %d. Error message: %s\n", eval_code, sqlite3_errmsg(db));
-                if(eval_code == SQLITE_ERROR){
-                    printf("Username is probably taken\n");
-                    //query to check if username is taken
-                }
-                return;
-            }
-            else{
+        //Executed paramaterized query
+        int eval_code = sqlite3_step(stmt);
+        if (eval_code != SQLITE_DONE) {
+            printf("Could not step (execute). Error Code: %d. Error message: %s\n", eval_code, sqlite3_errmsg(db));
+            if (eval_code == SQLITE_ERROR) {
+                printf("Something went wrong.\n");
+            } 
+        } else {
                 printf("Registered user: %s\n", name.c_str());
-            }
         }
-        close_db_connection();
     }
     return;
 }
 
 void login() {
-    printf("Please enter your username: ");
+    printf("Enter your username: ");
     string name;
     cin >> name;
-    printf("Please enter your password: ");
+    printf("Enter your password: ");
     string password;
     cin >> password;
     
@@ -258,10 +273,9 @@ void check_messages() {
     cout << "Hello! You have one new message from Boba! Would you like to read the message? (Y/N) ";
     string read;
     cin >> read;
-    if(read[0] == 'Y' || read[0] == 'y'){
+    if (read[0] == 'Y' || read[0] == 'y') {
         //read();
-    }
-    else if(read[0] == 'N' || read[0] == 'n'){
+    } else if (read[0] == 'N' || read[0] == 'n') {
         cout << "You have no new messages!";
 
     }
@@ -269,10 +283,9 @@ void check_messages() {
     cout << "Would you like to write a message? (Y/N) ";
     string write;
     cin >> write;
-    if(write[0] == 'Y' || write[0] == 'y'){
+    if (write[0] == 'Y' || write[0] == 'y') {
         //write();
-    }
-    else{
+    } else {
         return;
     }
     
@@ -300,14 +313,8 @@ void write_message() {
 
 void help_info() {
     if (!logged_in) {
-        cout << "\tr \t register a username" << endl;
-        cout << "\tl \t login" << endl;
-        cout << "\tq \t quit" << endl;
+        printf("\tr \t register a username\n\tl \t login\n\tq \t quit\n");
     } else {
-        cout << "\tc \t check messages" << endl;
-        cout << "\to \t open a message" << endl;
-        cout << "\tw \t write a message" << endl;
-        cout << "\tl \t logout" << endl;
-        cout << "\tq \t quit" << endl;
+        printf("\tc \t check messages\n\to \t open a message\n\tw \t write a message\n\tl \t logout\n\tq \t quit\n");
     }
 }
