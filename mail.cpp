@@ -1,6 +1,5 @@
 #include <iostream>
 #include <string.h>
-#include <gcrypt.h>
 #include <sqlite3.h>
 #include <stdio.h>
 #include <openssl/rand.h>
@@ -242,7 +241,7 @@ int main() {
     }
     string my_pass = "hey now";
     bool encrypted = encrypt(my_pass);
-    bool conf = verify(my_pass, encrypted);
+    bool conf = verify(my_pass, "dang");
     printf("PASS: %s\nHASH: %s\nVERIFIED: %s\n", my_pass.c_str(), hashed_password, conf ? "true" : "false");
     while (1) {
         cin >> input;

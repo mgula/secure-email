@@ -1,7 +1,9 @@
 CXX = g++
 CXXFLAGS = 
-LINKS = -lsqlite3 -lgcrypt -lsodium
 
+DATABASE = secure.db
+
+LINKS = -lsqlite3 -lsodium
 
 all: run
 
@@ -14,10 +16,6 @@ mail: mail.o
 run: mail
 	./mail
 
-gcrypt_install:
-	sudo apt-get update
-	sudo apt-get install libgcrypt20-dev
-
 libsodium_install:
 	cd ~/workspace
 	wget https://download.libsodium.org/libsodium/releases/LATEST.tar.gz
@@ -27,10 +25,18 @@ libsodium_install:
 	./configure 
 	make && make check
 	sudo make install
+	sudo ldconfig
 	
 clean:
 	rm -rf *.o *.~ mail
 
-# a database scrub command would be nice
+# database commands
+
+db_user_dump:
+	sqlite3 $(DATABASE) < db_commands/user_dump.txt
+	
+db_message_dump:
+	sqlite3 $(DATABASE) < db_commands/message_dump.txt
+
 db_clean:
 	
