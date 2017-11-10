@@ -5,6 +5,7 @@
 #include <sodium.h>
 
 #define AMT_OPERATIONS 2<<22
+
 using namespace std;
 
 string current_user;
@@ -117,12 +118,12 @@ void sql_stmt(const char* stmt) {
 
 bool prepare_statement(const char* query) {
     int return_code;
-    return_code = sqlite3_prepare(
-    db, 
+    return_code = sqlite3_prepare( db, 
     query,  // stmt
     -1, // If than zero, then stmt is read up to the first nul terminator
     &stmt,
-    NULL);   // Pointer to unused portion of stmt
+    NULL); // Pointer to unused portion of stmt
+    
     if (return_code != SQLITE_OK) {
         printf("\nCould not prepare statement. Return code: %d\n", return_code);
         return false;
@@ -131,7 +132,7 @@ bool prepare_statement(const char* query) {
 }
 
 bool bind_text(int index, string text) {
-    int ret_code = sqlite3_bind_text(stmt,index,text.c_str(),text.length(),SQLITE_STATIC);
+    int ret_code = sqlite3_bind_text(stmt, index, text.c_str(), text.length(), SQLITE_STATIC);
     if (ret_code != SQLITE_OK) {
         return false;
     }
@@ -139,7 +140,7 @@ bool bind_text(int index, string text) {
 }
 
 bool bind_text(int index, char* text, int len) {
-    int ret_code = sqlite3_bind_text(stmt,index, text, len, SQLITE_STATIC);
+    int ret_code = sqlite3_bind_text(stmt, index, text, len, SQLITE_STATIC);
     if (ret_code != SQLITE_OK) {
         return false;
     }
@@ -201,7 +202,7 @@ void register_user() {
     //Validate credentials
     bool valid_creds = validate_credentials(name, password);
     
-    if(is_open && valid_creds){
+    if (is_open && valid_creds){
         //Encrypt passwrd
         char hash_buffer[crypto_pwhash_scryptsalsa208sha256_STRBYTES];
         encrypt(password, hash_buffer, AMT_OPERATIONS);
@@ -229,9 +230,6 @@ void register_user() {
         close_db_connection();
     }
     return;
-    
-    //just a skeleton code for registering
-    
 }
 
 void login() {
