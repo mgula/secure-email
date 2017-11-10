@@ -8,9 +8,8 @@
 
 using namespace std;
 
-string current_user;
-
 bool logged_in = false;
+string current_user;
 
 sqlite3* db;
 const char* db_name = "secure.db";
@@ -24,8 +23,9 @@ void sql_stmt(const char* stmt);
 bool prepare_statement(const char* query);
 bool bind_text(int index, string text);
 bool bind_text(int index, char* text, int len);
-void encrypt(string,char*,unsigned int);
+void encrypt(string, char*, unsigned int);
 bool verify(string pass, char* hash);
+bool check_existing(string user);
 bool validate_credentials(string un, string pw);
 void print_bytes(const void *object, size_t size);
 
@@ -38,11 +38,11 @@ void write_message();
 void help_info();
 
 int main() {
-    cout << "Welcome to Gee-Mail. Enter H for a list of commands. " << endl;
+    printf("Welcome to Gee-Mail. Enter H for a list of commands.\n");
     string input;
     
     if (sodium_init() < 0) {
-        printf("Sodium didn't initialize, Panic!\n");
+        printf("Sodium may not have been properly installed.\n");
         return 1;
     }
 
@@ -51,8 +51,7 @@ int main() {
         
         /*Check for quit*/
         if (input[0] == 'Q' || input[0] == 'q') {
-            //need safe quit method
-            cout << "Exiting." << endl;
+            printf("Exiting.\n");
             break;
         }
         
@@ -67,16 +66,17 @@ int main() {
             if (input[0] == 'R' || input[0] == 'r') {
                 //register
                 register_user();
-                cout << "Enter r to register or l to login: ";
+                printf("Enter r to register or l to login.\n");
             } else if (input[0] == 'L' || input[0] == 'l') {
                 login();
                 if (logged_in) {
-                    cout << "Welcome, " << current_user << "." << endl;
+                    cout << "Welcome, " << current_user << ".\n";
+                    //printf("Welcome, %s.\n", current_user);
                 } else {
-                    cout << "Enter r to register or l to login: " << endl;
+                    printf("Enter r to register or l to login.\n");
                 }
             } else {
-                cout << "Command not recognized." << endl << "Enter r to register or l to login: ";
+                printf("Command not recognized.\n Enter r to register or l to login.\n");
             }
         } else {
             //send messages, check messages, open message
@@ -118,7 +118,7 @@ void sql_stmt(const char* stmt) {
 
 bool prepare_statement(const char* query) {
     int return_code;
-    return_code = sqlite3_prepare( db, 
+    return_code = sqlite3_prepare(db, 
     query,  // stmt
     -1, // If than zero, then stmt is read up to the first nul terminator
     &stmt,
@@ -171,6 +171,10 @@ bool verify(string pass, char* hash) {
     return true;
 }
 
+bool check_existing(string user) {
+    
+}
+
 bool validate_credentials(string un, string pw){
     //0 < len(username) < 20 
     //0 < len(password) < 30
@@ -190,10 +194,10 @@ void print_bytes(const void *object, size_t size) {
 
 void register_user() {
     //User input
-    cout << "Enter a username: ";
+    printf("Enter a username: ");
     string name;
     cin >> name;
-    cout << "Select a password: ";
+    printf("Select a password: ");
     string password;
     cin >> password;
 
@@ -208,8 +212,7 @@ void register_user() {
         encrypt(password, hash_buffer, AMT_OPERATIONS);
         bool prepared = prepare_statement("insert into user ( NAME , PASSWORD, SALT ) values (?, ?, 'salt')");
         
-        if( prepared ){
-            cout << "Prepared" << endl;
+        if (prepared){
             bool bind1 = bind_text(1, name);
             bool bind2 = bind_text(2, hash_buffer, strlen(hash_buffer));
             
@@ -233,21 +236,20 @@ void register_user() {
 }
 
 void login() {
-    cout << "Please enter your username: ";
+    printf("Please enter your username: ");
     string name;
     cin >> name;
-    cout << "Please enter your password: ";
+    printf("Please enter your password: ");
     string password;
     cin >> password;
     
     if (sqlite3_open(db_name, &db) == SQLITE_OK) {
-        cout << "Opened db successfully\n";
         logged_in = true;
         current_user = "jeff";
         
         
     } else {
-        cout << "Failed to open db.\n";
+        printf("Failed to open db.\n");
         return;
     }
 }
