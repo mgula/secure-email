@@ -1,11 +1,10 @@
 #include <iostream>
 #include <string.h>
-#include <gcrypt.h>
 #include <sqlite3.h>
 #include <stdio.h>
-#include <openssl/rand.h>
 #include <sodium.h>
 
+#define AMT_OPERATIONS 2<<22
 using namespace std;
 
 string current_user;
@@ -15,10 +14,9 @@ bool logged_in = false;
 sqlite3* db;
 const char* db_name = "secure.db";
 sqlite3_stmt *stmt;
-char hashed_password[crypto_pwhash_scryptsalsa208sha256_STRBYTES];
 int rc;
 
-
+void encrypt(string,char*,unsigned int);
 void login() {
     cout << "Please enter your username: ";
     string name;
@@ -94,6 +92,13 @@ bool bind_text(int index, string text){
     return true;
 }
 
+bool bind_text(int index, char* text, int len){
+    int ret_code = sqlite3_bind_text(stmt,index, text, len, SQLITE_STATIC);
+    if(ret_code != SQLITE_OK){
+        return false;
+    }
+    return true;
+}
 bool validate_credentials(string un, string pw){
     //0 < len(username) < 20 
     //0 < len(password) < 30
@@ -101,6 +106,7 @@ bool validate_credentials(string un, string pw){
 }
 
 void register_user() {
+    //User input
     cout << "Enter a username: ";
     string name;
     cin >> name;
@@ -108,26 +114,36 @@ void register_user() {
     string password;
     cin >> password;
 
+    //Open the db
     bool is_open = open_db_connection();
+    //Validate credentials
     bool valid_creds = validate_credentials(name, password);
     
     if(is_open && valid_creds){
-        //Encrypt name & salt
+        //Encrypt passwrd
+        char hash_buffer[crypto_pwhash_scryptsalsa208sha256_STRBYTES];
+        encrypt(password, hash_buffer, AMT_OPERATIONS);
         bool prepared = prepare_statement("insert into user ( NAME , PASSWORD, SALT ) values (?, ?, 'salt')");
+        
         if( prepared ){
             cout << "Prepared" << endl;
             bool bind1 = bind_text(1, name);
-            bool bind2 = bind_text(2, password);
+            bool bind2 = bind_text(2, hash_buffer, strlen(hash_buffer));
             
-            if (sqlite3_step(stmt) != SQLITE_DONE) {
-                printf("\nCould not step (execute) stmt.\n");
+            //Executed paramaterized query
+            int eval_code = sqlite3_step(stmt);
+            if ( eval_code != SQLITE_DONE) {
+                printf("\nCould not step (execute). Error Code: %d. Error message: %s\n", eval_code, sqlite3_errmsg(db));
+                if(eval_code == SQLITE_ERROR){
+                    printf("Username is probably taken\n");
+                    //query to check if username is taken
+                }
                 return;
             }
             else{
                 printf("Registered user: %s\n", name.c_str());
             }
         }
-        cout << "Finished registration" << endl;
         close_db_connection();
     }
     return;
@@ -215,16 +231,19 @@ void print_bytes(const void *object, size_t size)
   printf("\n");
 }
 
-bool encrypt(string pass){
-    int ret_value = crypto_pwhash_scryptsalsa208sha256_str(hashed_password, pass.c_str(), pass.length(),crypto_pwhash_scryptsalsa208sha256_OPSLIMIT_MIN,crypto_pwhash_scryptsalsa208sha256_MEMLIMIT_MIN);
+void encrypt(string pass, char* buf, unsigned int ops){
+    int ret_value = crypto_pwhash_scryptsalsa208sha256_str(buf, pass.c_str(), pass.length(), ops, crypto_pwhash_scryptsalsa208sha256_MEMLIMIT_MIN);
     if(ret_value != 0){
-        return false;
+        buf = NULL;
     }
-    return true;
+    return;
 }
 
-bool verify(string pass, string hash){
-    int ret_value = crypto_pwhash_scryptsalsa208sha256_str_verify(hash.c_str(), pass.c_str(), pass.length());
+bool verify(string pass, char* hash){
+    if(hash == NULL){
+        return false;
+    }
+    int ret_value = crypto_pwhash_scryptsalsa208sha256_str_verify(hash, pass.c_str(), pass.length());
     if(ret_value != 0){
         return false;
     }
@@ -236,14 +255,10 @@ int main() {
     string input;
     
     if (sodium_init() < 0) {
-        /* panic! the library couldn't be initialized, it is not safe to use */
-        printf("Panic\n");
+        printf("Sodium didn't initialize, Panic!\n");
         return 1;
     }
-    string my_pass = "hey now";
-    bool encrypted = encrypt(my_pass);
-    bool conf = verify(my_pass, encrypted);
-    printf("PASS: %s\nHASH: %s\nVERIFIED: %s\n", my_pass.c_str(), hashed_password, conf ? "true" : "false");
+    
     while (1) {
         cin >> input;
         
