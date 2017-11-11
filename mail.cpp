@@ -3,8 +3,14 @@
 #include <sqlite3.h>
 #include <stdio.h>
 #include <sodium.h>
+#include <boost/lexical_cast.hpp>
 
 #define AMT_OPERATIONS 2<<22
+
+#define MAX_NAME_LENGTH 20
+#define MAX_PASSWORD_LENGTH 30
+
+#define LOGIN_ATTEMPTS 3
 
 using namespace std;
 
@@ -50,7 +56,7 @@ int main() {
         return 1;
     }
     
-    printf("Welcome to Gee-Mail. Enter H for a list of commands.\n");
+    printf("Welcome to Gee-Mail. Enter h for a list of commands.\n");
     string input;
 
     while (1) {
@@ -71,19 +77,20 @@ int main() {
         if (!logged_in) {
             if (input[0] == 'R' || input[0] == 'r') {
                 register_user();
-                printf("Enter r to register or l to login.\n");
+                printf("Enter r to register a new username or l to login.\n");
             } else if (input[0] == 'L' || input[0] == 'l') {
                 login();
                 if (logged_in) {
                     printf("Welcome, %s.\n", current_user.c_str());
                 } else {
-                    printf("Enter r to register or l to login.\n");
+                    printf("Enter r to register a new username or l to login.\n");
                 }
             } else {
-                printf("Command not recognized.\n Enter r to register or l to login.\n");
+                printf("Command not recognized.\nEnter h for a list of commands.\n");
             }
         } else {
-            //send messages, check messages, open message
+            
+            
         }
     }
     
@@ -191,11 +198,11 @@ bool check_existing(string user) {
     if (prepared) {
         bind_text(1, user);
         sqlite3_step(stmt);
-        if (sqlite3_column_text(stmt, 0) != NULL) { //if not null, this name has an entry (it's taken)
-                return false;
+        if (sqlite3_column_text(stmt, 0) != NULL) { //if not null, this name has an entry (it exists)
+                return true;
         }
     }
-    return true;
+    return false;
 }
 
 unsigned int get_amt_operations(){
@@ -229,25 +236,25 @@ void register_user() {
     string name;
     cin >> name;
     
-    bool valid_length = name.length() > 0 && name.length() < 20;
-    bool name_available = check_existing(name);
-    while (!valid_length || !name_available) {
+    bool valid_length = name.length() > 0 && name.length() < MAX_NAME_LENGTH;
+    bool name_taken = check_existing(name);
+    while (!valid_length || name_taken) {
         if (!valid_length) {
             printf("Name must be at least 1 character and less than 20 characters.\n");
-        } else if (!name_available) {
+        } else if (name_taken) {
             printf("The username %s is taken.\n", name.c_str());
         }
         printf("Enter a username: ");
         cin >> name;
-        valid_length = name.length() > 0 && name.length() < 20;
-        name_available = check_existing(name);
+        valid_length = name.length() > 0 && name.length() < MAX_NAME_LENGTH;
+        name_taken = check_existing(name);
     }
     
     printf("Select a password: ");
     string password;
     cin >> password;
     
-    while (password.length() == 0 || password.length() > 30) {
+    while (password.length() == 0 || password.length() >= MAX_PASSWORD_LENGTH) {
         printf("Password must be at least 1 character and less than 30 characters.\n");
         cin >> password;
     }
@@ -281,18 +288,62 @@ void login() {
     printf("Enter your username: ");
     string name;
     cin >> name;
+    
+    bool valid_length = name.length() > 0 && name.length() < MAX_NAME_LENGTH;
+    while (!valid_length) {
+        printf("Name must be at least 1 character and less than 20 characters.\n");
+        cin >> name;
+        valid_length = name.length() > 0 && name.length() < MAX_NAME_LENGTH;
+    }
+    
+    if (!check_existing(name)) {
+        printf("The username %s does not exist.\n", name.c_str());
+        return;
+    }
+    
     printf("Enter your password: ");
     string password;
     cin >> password;
     
-    if (sqlite3_open(db_name, &db) == SQLITE_OK) {
-        logged_in = true;
-        current_user = "jeff";
-        
-        
+    while (password.length() == 0 || password.length() >= MAX_PASSWORD_LENGTH) {
+        printf("Entered password doesn't meet length requirements.\nPassword must be at least 1 character and less than 30 characters.\n");
+        cin >> password;
+    }
+    
+    int tries = 0;
+    
+    /*Select user entry from database*/
+    char hash_buffer[crypto_pwhash_scryptsalsa208sha256_STRBYTES];
+    prepare_statement("select * from user where name = ?");
+    bind_text(1, name);
+    sqlite3_step(stmt);
+    
+    /*Raw output from sqlite3_column_text*/
+    cout << "raw: " << sqlite3_column_text(stmt, 3) << endl;
+    
+    /*First cast*/
+    unsigned char* user_ops = (unsigned char*)sqlite3_column_text(stmt, 3);
+    
+    cout << "cast1: " << user_ops << endl;
+    
+    /*Final cast to unsigned int*/
+    unsigned int cast = boost::lexical_cast<unsigned int>(user_ops);
+    
+    cout << "cast2: " << cast << endl;
+    
+    /*Encrypt the entered password with correct number of operations from db*/
+    encrypt(password, hash_buffer, cast);
+    
+    /*In the end, these should be the same in the case that the correct password was entered, right?*/
+    cout << "hash: " << hash_buffer << endl;
+    char* db_hash = (char*)sqlite3_column_text(stmt, 2);
+    cout << "db hash: " << db_hash << endl;
+    
+    /*Make comparison*/
+    if (strcmp(hash_buffer, db_hash) == 0) {
+        printf("Login success\n");
     } else {
-        printf("Failed to open db.\n");
-        return;
+        printf("Login fail\n");
     }
 }
 
