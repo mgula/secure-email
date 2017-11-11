@@ -34,6 +34,10 @@ bool verify(const char* pass, char* hash);
 bool check_existing(string user);
 void print_bytes(const void *object, size_t size);
 unsigned int get_amt_operations();
+string raw2string(unsigned char* input, unsigned int input_size);
+void string2raw(string in, unsigned char* out);
+bool passphrase_valid(string);
+void generate_hash(unsigned char* , const char* , string , unsigned int );
 
 /*Methods that appear in main*/
 void register_user();
@@ -218,6 +222,56 @@ unsigned int get_amt_operations(){
     }
     printf("Factor: %d, Div: %d, Random: %d, Sum: %d\n", fac, divi, ran, sum);
     return sum;
+}
+
+string raw2string(unsigned char* input, unsigned int input_size){
+  int i;
+  //the output needs to have room for 2*input_size chars
+  char byte[2];
+  string output;
+  for(i = 0; i<input_size; i++){
+    sprintf(byte, "%02X", input[i]);
+    output.append(byte);
+  }
+  return output;
+};
+
+void string2raw(string in, unsigned char* out){
+  //the output needs to have room for input_size/2 chars
+  unsigned int i, t, hn, ln;
+  for (t = 0,i = 0; i < in.length(); i+=2,++t) {
+          hn = in[i] > '9' ? in[i] - 'A' + 10 : in[i] - '0';
+          ln = in[i+1] > '9' ? in[i+1] - 'A' + 10 : in[i+1] - '0';
+          out[t] = (hn << 4 ) | ln;
+  }
+};
+
+bool passphrase_valid(string phrase){
+    return phrase.length() > 1 && phrase.length() < crypto_secretbox_KEYBYTES;
+}
+
+void generate_hash(unsigned char* hash, const char* salt, string passphrase, unsigned int iterations){
+    cout << "Started generate hash" << endl;
+    size_t hash_size = crypto_secretbox_KEYBYTES;
+    string input_message_string = salt;
+    input_message_string.append("0");
+    const unsigned char* input_message = reinterpret_cast<const unsigned char*>(input_message_string.c_str());
+    const unsigned char* key = reinterpret_cast<const unsigned char*>(passphrase.c_str());
+    
+    crypto_generichash(hash, hash_size,
+                       input_message, input_message_string.length(),
+                       key, passphrase.length());
+    for(int i = 0; i < iterations; i++){
+        input_message_string = salt;
+        string hash_string = raw2string(hash, hash_size);
+        input_message_string.append(hash_string);
+        input_message_string.append("0");
+        const unsigned char* input_message = reinterpret_cast<const unsigned char*>(input_message_string.c_str());
+        crypto_generichash(hash, hash_size,
+                       input_message, input_message_string.length(),
+                       key, passphrase.length());
+    }
+    cout << "Ended generate hash" << endl;
 }
 
 void print_bytes(const void *object, size_t size) {
