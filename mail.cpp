@@ -3,7 +3,6 @@
 #include <sqlite3.h>
 #include <stdio.h>
 #include <sodium.h>
-#include <boost/lexical_cast.hpp>
 
 #define AMT_OPERATIONS 2<<22
 
@@ -318,33 +317,22 @@ void login() {
     bind_text(1, name);
     sqlite3_step(stmt);
     
-    /*Raw output from sqlite3_column_text*/
-    cout << "raw: " << sqlite3_column_text(stmt, 3) << endl;
+    bool correct_pass = verify(password, (char*)sqlite3_column_text(stmt, 2));
     
-    /*First cast*/
-    unsigned char* user_ops = (unsigned char*)sqlite3_column_text(stmt, 3);
-    
-    cout << "cast1: " << user_ops << endl;
-    
-    /*Final cast to unsigned int*/
-    unsigned int cast = boost::lexical_cast<unsigned int>(user_ops);
-    
-    cout << "cast2: " << cast << endl;
-    
-    /*Encrypt the entered password with correct number of operations from db*/
-    encrypt(password, hash_buffer, cast);
-    
-    /*In the end, these should be the same in the case that the correct password was entered, right?*/
-    cout << "hash: " << hash_buffer << endl;
-    char* db_hash = (char*)sqlite3_column_text(stmt, 2);
-    cout << "db hash: " << db_hash << endl;
-    
-    /*Make comparison*/
-    if (strcmp(hash_buffer, db_hash) == 0) {
-        printf("Login success\n");
-    } else {
-        printf("Login fail\n");
+    while (!correct_pass) {
+        tries++;
+        if (tries == LOGIN_ATTEMPTS) {
+            printf("Number of tries exceeded.\nLogin failed.\n");
+            return;
+        } else {
+            printf("Incorrect password.\nEnter your password: ");
+            cin >> password;
+            correct_pass = verify(password, (char*)sqlite3_column_text(stmt, 2));
+        }
     }
+    
+    current_user = name;
+    logged_in = true;
 }
 
 void check_messages() {
