@@ -21,12 +21,14 @@ bool open_db_connection();
 bool close_db_connection();
 void sql_stmt(const char* stmt);
 bool prepare_statement(const char* query);
+bool bind_int(int index, int value);
 bool bind_text(int index, string text);
 bool bind_text(int index, char* text, int len);
 void encrypt(string, char*, unsigned int);
 bool verify(string pass, char* hash);
 bool check_existing(string user);
 void print_bytes(const void *object, size_t size);
+unsigned int get_amt_operations();
 
 /*Methods that appear in main*/
 void register_user();
@@ -151,6 +153,14 @@ bool bind_text(int index, char* text, int len) {
     return true;
 }
 
+bool bind_int(int index, int value){
+    int ret_code = sqlite3_bind_int(stmt, index, value);
+    if (ret_code != SQLITE_OK) {
+        return false;
+    }
+    return true;
+}
+
 void encrypt(string pass, char* buf, unsigned int ops) {
     int ret_value = crypto_pwhash_scryptsalsa208sha256_str(buf, 
         pass.c_str(), 
@@ -188,6 +198,21 @@ bool check_existing(string user) {
     return true;
 }
 
+unsigned int get_amt_operations(){
+    bool sign = randombytes_uniform(2) == 0 ? true : false;
+    unsigned int fac, divi, ran, sum = 0;
+    fac = AMT_OPERATIONS;
+    divi = fac/10;
+    ran = randombytes_uniform(divi);
+    if(true){
+        sum = fac + ran;
+    }
+    else{
+        sum = fac - ran;
+    }
+    printf("Factor: %d, Div: %d, Random: %d, Sum: %d\n", fac, divi, ran, sum);
+    return sum;
+}
 void print_bytes(const void *object, size_t size) {
     // This is for C++; in C just drop the static_cast<>() and assign.
     const unsigned char * const bytes = static_cast<const unsigned char *>(object);
@@ -227,15 +252,17 @@ void register_user() {
         cin >> password;
     }
     
+    //The amount of operations
+    unsigned int amt_operations = get_amt_operations();
     //Encrypt passwrd
     char hash_buffer[crypto_pwhash_scryptsalsa208sha256_STRBYTES];
-    encrypt(password, hash_buffer, AMT_OPERATIONS);
-    bool prepared = prepare_statement("insert into user ( NAME , PASSWORD, SALT ) values (?, ?, 'salt')");
-        
+    encrypt(password, hash_buffer, amt_operations);
+    bool prepared = prepare_statement("insert into user ( NAME , PASSWORD, ITER ) values (?, ?, ?)");
+    
     if (prepared) {
         bool bind1 = bind_text(1, name);
         bool bind2 = bind_text(2, hash_buffer, strlen(hash_buffer));
-            
+        bool bind3 = bind_int(3, amt_operations);
         //Executed paramaterized query
         int eval_code = sqlite3_step(stmt);
         if (eval_code != SQLITE_DONE) {
