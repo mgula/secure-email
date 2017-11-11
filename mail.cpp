@@ -29,8 +29,8 @@ bool prepare_statement(const char* query);
 bool bind_int(int index, int value);
 bool bind_text(int index, string text);
 bool bind_text(int index, char* text, int len);
-void encrypt(string, char*, unsigned int);
-bool verify(string pass, char* hash);
+void encrypt(const char* pass, char*, unsigned int);
+bool verify(const char* pass, char* hash);
 bool check_existing(string user);
 void print_bytes(const void *object, size_t size);
 unsigned int get_amt_operations();
@@ -167,10 +167,10 @@ bool bind_int(int index, int value){
     return true;
 }
 
-void encrypt(string pass, char* buf, unsigned int ops) {
+void encrypt(const char* pass, char* buf, unsigned int ops) {
     int ret_value = crypto_pwhash_scryptsalsa208sha256_str(buf, 
-        pass.c_str(), 
-        pass.length(), 
+        pass, 
+        strlen(pass), 
         ops, 
         crypto_pwhash_scryptsalsa208sha256_MEMLIMIT_MIN);
         
@@ -180,11 +180,11 @@ void encrypt(string pass, char* buf, unsigned int ops) {
     return;
 }
 
-bool verify(string pass, char* hash) {
+bool verify(const char* pass, char* hash) {
     if (hash == NULL) {
         return false;
     }
-    int ret_value = crypto_pwhash_scryptsalsa208sha256_str_verify(hash, pass.c_str(), pass.length());
+    int ret_value = crypto_pwhash_scryptsalsa208sha256_str_verify(hash, pass, strlen(pass));
     if (ret_value != 0) {
         return false;
     }
@@ -219,6 +219,7 @@ unsigned int get_amt_operations(){
     printf("Factor: %d, Div: %d, Random: %d, Sum: %d\n", fac, divi, ran, sum);
     return sum;
 }
+
 void print_bytes(const void *object, size_t size) {
     // This is for C++; in C just drop the static_cast<>() and assign.
     const unsigned char * const bytes = static_cast<const unsigned char *>(object);
@@ -250,19 +251,30 @@ void register_user() {
     }
     
     printf("Select a password: ");
-    string password;
-    cin >> password;
+    //Must ignore the newline character left by cin >> user
+    cin.ignore();
+    char password[32];
+    cin.getline(password, 32);
+
+    cout << "You entered: " << password  << endl;
     
-    while (password.length() == 0 || password.length() >= MAX_PASSWORD_LENGTH) {
+    while (strlen(password) == 0 || strlen(password) >= MAX_PASSWORD_LENGTH) {
         printf("Password must be at least 1 character and less than 30 characters.\n");
-        cin >> password;
+        cin.getline(password, 32);
     }
+    
+    //Lock the sensitive memory region
+    sodium_mlock(password, sizeof password);
     
     //The amount of operations
     unsigned int amt_operations = get_amt_operations();
     //Encrypt passwrd
     char hash_buffer[crypto_pwhash_scryptsalsa208sha256_STRBYTES];
     encrypt(password, hash_buffer, amt_operations);
+    
+    //Unlock the sensitive memory region after encrypting
+    sodium_munlock(password, sizeof password);
+    
     bool prepared = prepare_statement("insert into user ( NAME , PASSWORD, ITER ) values (?, ?, ?)");
     
     if (prepared) {
@@ -300,16 +312,18 @@ void login() {
         return;
     }
     
+    cin.ignore();
     printf("Enter your password: ");
-    string password;
-    cin >> password;
+    char password[MAX_PASSWORD_LENGTH];
+    cin.getline(password, sizeof password);
     
-    while (password.length() == 0 || password.length() >= MAX_PASSWORD_LENGTH) {
+    while (strlen(password) == 0 || strlen(password) >= MAX_PASSWORD_LENGTH) {
         printf("Entered password doesn't meet length requirements.\nPassword must be at least 1 character and less than 30 characters.\n");
-        cin >> password;
+        cin.getline(password, sizeof password);
     }
     
     int tries = 0;
+    
     
     /*Select user entry from database*/
     char hash_buffer[crypto_pwhash_scryptsalsa208sha256_STRBYTES];
@@ -317,6 +331,7 @@ void login() {
     bind_text(1, name);
     sqlite3_step(stmt);
     
+    sodium_mlock(password, sizeof password);
     bool correct_pass = verify(password, (char*)sqlite3_column_text(stmt, 2));
     
     while (!correct_pass) {
@@ -326,11 +341,13 @@ void login() {
             return;
         } else {
             printf("Incorrect password.\nEnter your password: ");
-            cin >> password;
+            cin.getline(password, sizeof password);
+            
             correct_pass = verify(password, (char*)sqlite3_column_text(stmt, 2));
+            
         }
     }
-    
+    sodium_munlock(password, sizeof password);
     current_user = name;
     logged_in = true;
 }
