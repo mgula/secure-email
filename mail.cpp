@@ -19,6 +19,10 @@
 
 #define LOGIN_ATTEMPTS 3
 
+#define CIPHERTEXT_PAD crypto_secretbox_MACBYTES
+#define NONCE_LEN crypto_secretbox_NONCEBYTES
+#define KEY_LEN crypto_secretbox_KEYBYTES
+
 using namespace std;
 
 bool logged_in = false;
@@ -44,8 +48,8 @@ void print_bytes(const void *object, size_t size);
 unsigned int get_amt_operations();
 string raw2string(unsigned char* input, unsigned int input_size);
 void string2raw(string in, unsigned char* out);
-bool passphrase_valid(string);
-void generate_hash(unsigned char* , const char* , string , unsigned int );
+void generate_key(unsigned char* , const char* , string , unsigned int );
+bool add_message(string recipient, string cipher, string nonce);
 
 /*Methods that appear in main*/
 void register_user();
@@ -269,13 +273,10 @@ void string2raw(string in, unsigned char* out){
   }
 };
 
-bool passphrase_valid(string phrase){
-    return phrase.length() > 1 && phrase.length() < crypto_secretbox_KEYBYTES;
-}
 
-void generate_hash(unsigned char* hash, const char* salt, string passphrase, unsigned int iterations){
+void generate_key(unsigned char* hash, const char* salt, string passphrase, unsigned int iterations){
     cout << "Started generate hash" << endl;
-    size_t hash_size = crypto_secretbox_KEYBYTES;
+    size_t hash_size = KEY_LEN;
     string input_message_string = salt;
     input_message_string.append("0");
     const unsigned char* input_message = reinterpret_cast<const unsigned char*>(input_message_string.c_str());
@@ -490,8 +491,6 @@ void write_message() {
     }
     
     
-    cin.ignore();
-    
     printf("Type your passphrase: ");
     string passphrase;
     cin >> passphrase;
@@ -502,6 +501,35 @@ void write_message() {
         cin >> passphrase;
         valid_message_length = passphrase.length() >= MIN_PASSPHRASE_LENGTH && passphrase.length() < MAX_PASSPHRASE_LENGTH;
     }
+    
+    //Key buffer used for autherntication
+    unsigned char key[KEY_LEN];
+    
+    //This dumps the bytes into the key buffer
+    generate_key(key, "salty chips", passphrase, 3);
+    
+    //Compute the ciphertext length from the length of the message
+    int message_length = message.length();
+    int cipher_length = CIPHERTEXT_PAD + message_length;
+    
+    //The cipher buffers and nonce buffers
+    unsigned char cipher[cipher_length];
+    unsigned char nonce[NONCE_LEN];
+    
+    //The message string casted to a const unsigned char*
+    const unsigned char* mess = (const unsigned char*)message.c_str();
+    
+    //Get a random nonce
+    randombytes_buf(nonce, sizeof nonce);
+    crypto_secretbox_easy(cipher, mess, message_length, nonce, key);
+    
+    //Save this cipher in db
+    string cipher_text = raw2string(cipher, cipher_length);
+    string nonce_text = raw2string(nonce, NONCE_LEN);
+    
+    printf("Cipher text: %s\n", cipher_text.c_str());
+    printf("Nonce text: %s\n", nonce_text.c_str());
+    
     
     //start for writing messages
     
