@@ -50,7 +50,7 @@ void generate_hash(unsigned char* , const char* , string , unsigned int );
 /*Methods that appear in main*/
 void register_user();
 void login();
-void check_messages();
+void display_messages();
 void read_message();
 void write_message();
 void help_info();
@@ -101,7 +101,7 @@ int main() {
             }
         } else {
             if (input[0] == 'C' || input[0] == 'c') {
-                check_messages();
+                display_messages();
                 
             } else if (input[0] == 'R' || input[0] == 'r') {
                 read_message();
@@ -429,28 +429,34 @@ void login() {
     logged_in = true;
 }
 
-void check_messages() {
-    cout << "Hello! You have one new message from Boba! Would you like to read the message? (Y/N) ";
-    string read;
-    cin >> read;
-    if (read[0] == 'Y' || read[0] == 'y') {
-        //read();
-    } else if (read[0] == 'N' || read[0] == 'n') {
-        cout << "You have no new messages!";
-
+void display_messages() {
+    bool prepared = prepare_statement("select * from messages where recipient = ?");
+    
+    if (prepared) {
+        bind_text(1, current_user);
+        
+        int rc = sqlite3_step(stmt);
+        
+        if (sqlite3_column_text(stmt, 0) == NULL) {
+            printf("No messages at this time.\n");
+            return;
+        }
+        
+        printf("\tSender\t\tRead\n");
+        
+        int num_messages = 1;
+        
+        while (rc == SQLITE_ROW) {
+            char* sender = (char*)sqlite3_column_text(stmt, 1);
+            char* read = (char*)sqlite3_column_text(stmt, 3);
+            
+            printf("%d\t%s\t\t%s\n", num_messages, sender, read);
+            
+            num_messages++;
+            
+            rc = sqlite3_step(stmt);
+        }
     }
-    
-    cout << "Would you like to write a message? (Y/N) ";
-    string write;
-    cin >> write;
-    if (write[0] == 'Y' || write[0] == 'y') {
-        //write();
-    } else {
-        return;
-    }
-    
-    //base for selecting to read/write a message
-    
 }
 
 void read_message() {
