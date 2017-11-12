@@ -7,7 +7,12 @@
 #define AMT_OPERATIONS 2<<22
 
 #define MAX_NAME_LENGTH 20
+#define MIN_NAME_LENGTH 1
+
 #define MAX_PASSWORD_LENGTH 30
+
+#define MAX_MESSAGE_LEN 500
+#define MIN_MESSAGE_LEN 10
 
 #define LOGIN_ATTEMPTS 3
 
@@ -452,12 +457,35 @@ void read_message() {
 }
 
 void write_message() {
-    cout << "Select a user recipient: ";
-    string username;
-    cin >> username;
-    cout << "Type your message: ";
+    printf("Enter your recipient username: ");
+    string recipient;
+    cin >> recipient;
+    
+    bool valid_username_length = recipient.length() >= MIN_NAME_LENGTH && recipient.length() < MAX_NAME_LENGTH;
+    while (!valid_username_length) {
+        printf("Name must be at least %d character and less than %d characters.\n", MIN_NAME_LENGTH, MAX_NAME_LENGTH);
+        cin >> recipient;
+        valid_username_length = recipient.length() >= MIN_NAME_LENGTH && recipient.length() < MAX_NAME_LENGTH;
+    }
+    
+    if (!check_existing(recipient)) {
+        printf("The username %s does not exist.\n", recipient.c_str());
+        return;
+    }
+    
+    cin.ignore();
+    
+    printf("Type your message: ");
     string message;
-    cin >> message;
+    getline(cin, message);
+    
+    bool valid_message_length = message.length() >= MIN_MESSAGE_LEN && message.length() < MAX_MESSAGE_LEN;
+    while (!valid_message_length) {
+        printf("Message must be at least %d character and less than %d characters.\n", MIN_MESSAGE_LEN, MAX_MESSAGE_LEN);
+        getline(cin, message);
+        valid_message_length = message.length() >= MIN_MESSAGE_LEN && message.length() < MAX_MESSAGE_LEN;
+    }
+    
     
     //start for writing messages
     
