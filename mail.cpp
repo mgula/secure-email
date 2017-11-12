@@ -3,6 +3,7 @@
 #include <sqlite3.h>
 #include <stdio.h>
 #include <sodium.h>
+#include <limits> 
 
 #define AMT_OPERATIONS 2<<22
 
@@ -301,7 +302,6 @@ void string2raw(string in, unsigned char* out){
 
 
 void generate_key(unsigned char* hash, const char* salt, string passphrase, unsigned int iterations){
-    cout << "Started generate hash" << endl;
     size_t hash_size = KEY_LEN;
     string input_message_string = salt;
     input_message_string.append("0");
@@ -321,7 +321,6 @@ void generate_key(unsigned char* hash, const char* salt, string passphrase, unsi
                        input_message, input_message_string.length(),
                        key, passphrase.length());
     }
-    cout << "Ended generate hash" << endl;
 }
 
 void print_bytes(const void *object, size_t size) {
@@ -493,9 +492,96 @@ void display_messages() {
 }
 
 void read_message() {
+    int id;
     
+    while(true){
+        printf("Enter the message id: ");
+        if (cin >> id) {
+            if(id < 0){
+                printf("Enter a non-negative message id\n");
+                cin.clear();
+                cin.ignore(numeric_limits<streamsize>::max(), '\n');
+            }else{
+                break;
+            }
+        } else {
+            printf("Enter an integer\n");
+            cin.clear();
+            cin.ignore(numeric_limits<streamsize>::max(), '\n');
+        }
+    }
+    
+    //Get that message
+    bool prepared = prepare_statement("select MESSAGE, NONCE from messages where recipient = ? AND id = ?");
+    
+    if(prepared){
+        
+        bind_text(1, current_user);
+        bind_int(2, id);
+        
+        sqlite3_step(stmt);
+        
+        if (sqlite3_column_text(stmt, 0) == NULL) {
+            printf("Could not retrieve message with that ID.\n");
+            return;
+        }
+        
+        printf("Type your passphrase: ");
+        string passphrase;
+        cin >> passphrase;
+                
+        bool valid_passphrase_length = passphrase.length() >= MIN_PASSPHRASE_LENGTH && passphrase.length() < MAX_PASSPHRASE_LENGTH;
+        while (!valid_passphrase_length) {
+            printf("Message must be at least %d character and less than %d characters.\n", MIN_PASSPHRASE_LENGTH, MAX_PASSPHRASE_LENGTH);
+            cin >> passphrase;
+            valid_passphrase_length = passphrase.length() >= MIN_PASSPHRASE_LENGTH && passphrase.length() < MAX_PASSPHRASE_LENGTH;
+        }
+        
+        
+        string cipher_text = (char*)sqlite3_column_text(stmt, 0);
+        string nonce_text = (char*)sqlite3_column_text(stmt, 1);
+        
+        int cipher_len = cipher_text.length()/2;
+        int message_len = (cipher_len - CIPHERTEXT_PAD);
+        
+        unsigned char cipher[cipher_len];
+        unsigned char nonce[NONCE_LEN];
+        
+        unsigned char decrypt[message_len];
+        
+        //Key buffer used for autherntication
+        unsigned char key[KEY_LEN];
+        
+        //This dumps the bytes into the key buffer
+        generate_key(key, "salty chips", passphrase, 3);
+        
+        string2raw(cipher_text, cipher);
+        string2raw(nonce_text, nonce);
+        
+        int ret_code = crypto_secretbox_open_easy(decrypt, cipher, sizeof cipher, nonce, key);
+        if(ret_code != 0){
+            printf("Failed\n");
+        }
+        else{
+            printf("Decrypt Success\n");
+            string casted = (const char*)decrypt;
+            casted = casted.substr(0,message_len);
+            printf("Message: %s\n", casted.c_str());
+            
+            //Set the read flag to true
+            prepare_statement("UPDATE messages SET read=1 WHERE id=?");
+            bind_int(1,id);
+            int rc = sqlite3_step(stmt);
+            if(rc == SQLITE_DONE){
+                printf("Updated the flag\n");
+            }
+            else{
+                printf("Failed update\n");
+            }
+        }
+    }
     //code to read the message
-    
+    return;
 }
 
 void write_message() {
@@ -534,10 +620,10 @@ void write_message() {
     cin >> passphrase;
     
     bool valid_passphrase_length = passphrase.length() >= MIN_PASSPHRASE_LENGTH && passphrase.length() < MAX_PASSPHRASE_LENGTH;
-    while (!valid_message_length) {
+    while (!valid_passphrase_length) {
         printf("Message must be at least %d character and less than %d characters.\n", MIN_PASSPHRASE_LENGTH, MAX_PASSPHRASE_LENGTH);
         cin >> passphrase;
-        valid_message_length = passphrase.length() >= MIN_PASSPHRASE_LENGTH && passphrase.length() < MAX_PASSPHRASE_LENGTH;
+        valid_passphrase_length = passphrase.length() >= MIN_PASSPHRASE_LENGTH && passphrase.length() < MAX_PASSPHRASE_LENGTH;
     }
     
     //Key buffer used for autherntication
@@ -569,12 +655,6 @@ void write_message() {
     // printf("Nonce text: %s\n", nonce_text.c_str());
     
     bool success = add_message(recipient,cipher_text,nonce_text);
-    if(success){
-        printf("Yay we did it!\n");
-    }
-    else{
-        printf("No! You failed!\n");
-    }
     //start for writing messages
     
 }
