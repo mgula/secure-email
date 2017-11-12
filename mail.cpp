@@ -54,7 +54,7 @@ bool add_message(string recipient, string cipher, string nonce);
 /*Methods that appear in main*/
 void register_user();
 void login();
-void check_messages();
+void display_messages();
 void read_message();
 void write_message();
 void help_info();
@@ -105,7 +105,7 @@ int main() {
             }
         } else {
             if (input[0] == 'C' || input[0] == 'c') {
-                check_messages();
+                display_messages();
                 
             } else if (input[0] == 'R' || input[0] == 'r') {
                 read_message();
@@ -456,16 +456,8 @@ void login() {
     logged_in = true;
 }
 
-void check_messages() {
-    cout << "Hello! You have one new message from Boba! Would you like to read the message? (Y/N) ";
-    string read;
-    cin >> read;
-    if (read[0] == 'Y' || read[0] == 'y') {
-        //read();
-    } else if (read[0] == 'N' || read[0] == 'n') {
-        cout << "You have no new messages!";
-
-    }
+void display_messages() {
+    bool prepared = prepare_statement("select * from messages where recipient = ?");
     
     if (prepared) {
         bind_text(1, current_user);
