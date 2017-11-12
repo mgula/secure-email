@@ -443,17 +443,23 @@ void display_messages() {
             return;
         }
         
-        printf("\tSender\t\tRead\n");
-        
-        int num_messages = 1;
+        printf("\tMessage ID\tSender\t\tRead\n");
         
         while (rc == SQLITE_ROW) {
+            char* id = (char*)sqlite3_column_text(stmt, 0);
             char* sender = (char*)sqlite3_column_text(stmt, 1);
-            char* read = (char*)sqlite3_column_text(stmt, 3);
+            int read = sqlite3_column_int(stmt, 3);
             
-            printf("%d\t%s\t\t%s\n", num_messages, sender, read);
+            string read_string = "";
+            if (read == 0) {
+                read_string = "No";
+            } else if (read == 1) {
+                read_string = "Yes";
+            } else {
+                read_string = "No clue man";
+            }
             
-            num_messages++;
+            printf("\t %s\t\t %s\t\t %s\n", id, sender, read_string.c_str());
             
             rc = sqlite3_step(stmt);
         }
