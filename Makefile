@@ -32,11 +32,16 @@ clean:
 
 # database commands
 
-db_user_dump:
-	sqlite3 $(DATABASE) < db_commands/user_dump.txt
+dump_users:
+	sqlite3 $(DATABASE) "SELECT * FROM USERS"
 	
-db_message_dump:
-	sqlite3 $(DATABASE) < db_commands/message_dump.txt
+dump_messages:
+	sqlite3 $(DATABASE) "SELECT * FROM MESSAGES"
 
-db_clean:
+wipe_users:
+	sqlite3 $(DATABASE) "DROP TABLE USERS;"
+	sqlite3 $(DATABASE) "CREATE TABLE USERS(ID INTEGER PRIMARY KEY AUTOINCREMENT, NAME TEXT UNIQUE NOT NULL, PASSWORD TEXT NOT NULL, ITER INTEGER NOT NULL);"
 	
+wipe_messages:
+	sqlite3 $(DATABASE) "DROP TABLE MESSAGES;"
+	sqlite3 $(DATABASE) "CREATE TABLE MESSAGES(ID INTEGER PRIMARY KEY AUTOINCREMENT, SENDER TEXT NOT NULL, RECIPIENT TEXT NOT NULL, READ INTEGER NOT NULL, MESSAGE TEXT NOT NULL, NONCE TEXT NOT NULL);"
