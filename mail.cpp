@@ -84,7 +84,7 @@ int main() {
             } else if (input[0] == 'L' || input[0] == 'l') {
                 login();
                 if (logged_in) {
-                    printf("Welcome, %s.\n", current_user.c_str());
+                    printf("Welcome, %s.\nEnter h for a list of commands.\n", current_user.c_str());
                 } else {
                     printf("Enter r to register a new username or l to login.\n");
                 }
@@ -92,8 +92,23 @@ int main() {
                 printf("Command not recognized.\nEnter h for a list of commands.\n");
             }
         } else {
-            
-            
+            if (input[0] == 'C' || input[0] == 'c') {
+                check_messages();
+                
+            } else if (input[0] == 'R' || input[0] == 'r') {
+                read_message();
+                
+            } else if (input[0] == 'W' || input[0] == 'w') {
+                write_message();
+                
+            } else if (input[0] == 'L' || input[0] == 'l') {
+                printf("Logging out %s.\n", current_user.c_str());
+                current_user = "";
+                logged_in = false;
+            } else {
+                printf("Command not recognized.\n");
+            }
+            printf("Enter h for a list of commands.\n");
         }
     }
     
@@ -450,8 +465,8 @@ void write_message() {
 
 void help_info() {
     if (!logged_in) {
-        printf("\tr \t register a username\n\tl \t login\n\tq \t quit\n");
+        printf("\th \t print help information\n\tr \t register a username\n\tl \t login\n\tq \t quit\n");
     } else {
-        printf("\tc \t check messages\n\to \t open a message\n\tw \t write a message\n\tl \t logout\n\tq \t quit\n");
+        printf("\th \t print help information\n\tc \t check messages\n\tr \t read a message\n\tw \t write a message\n\tl \t logout\n\tq \t quit\n");
     }
 }
