@@ -113,12 +113,12 @@ int main(){
     //Generate the hash with some arbitray salt and iterations
     generate_hash(hash, "salty chips", shared_passphrase, 3);
     //Store the hash buffer as a string
-    string hash2string(hash,KEY_LEN);
     //This will be the key used in the crypto_secret_box
     //Store this string in the db
     
     //--------------------------------------------------------
     //Start Message encryption
+    printf("Started Encryption\n");
     string message;
     //Ignore the newline character leftover by the previous cin
     cin.ignore();
@@ -127,34 +127,56 @@ int main(){
         getline(cin, message);
     }
     
+    
     //The length of the message
     int message_length = message.length();
     //The stored ciphertext is the length of the message + the length of the ciphertext padding
     int cipher_length = CIPHERTEXT_PAD + message_length;
     
-    printf("Cipher text MAC: %d\n", CIPHERTEXT_PAD);
-    
+
     //Encrypt variables
     unsigned char cipher[cipher_length];
     unsigned char nonce[NONCE_LEN];
     const unsigned char* mess = (const unsigned char*)message.c_str();
     
-    
+    //Get a random nonce
     randombytes_buf(nonce, sizeof nonce);
     crypto_secretbox_easy(cipher, mess, message_length, nonce, hash);
     
-    int message_len = ((int)(sizeof cipher_decrypt) - CIPHERTEXT_PAD);
-    unsigned char cipher_decrypt[cipher_length];
+    //Save this cipher in db
+    string cipher_text = hash2string(cipher, cipher_length);
+    string nonce_text = hash2string(nonce, NONCE_LEN);
+    
+    //Encryption Done
+    //--------------------------------------------------------------
+    //Decryption start
+    printf("Started Decryption\n");
+    string passphrase_input;
+    while(! passphrase_valid(passphrase_input)){
+        printf("Enter secret phrase: ");
+        cin >> passphrase_input;
+    }
+    
+    int cipher_len = cipher_text.length()/2;
+    int message_len = (cipher_length - CIPHERTEXT_PAD);
+    unsigned char decrypt_key[KEY_LEN];
+    unsigned char cipher_decrypt[cipher_len];
     unsigned char nonce_decrypt[NONCE_LEN];
-    unsigned char decrypted[message_length];
+    unsigned char decrypted[message_len];
     
-    string cipher_hex = hash2string(cipher, sizeof cipher);
-    string nonce_hex = hash2string(nonce, sizeof nonce);
-    string2hash(cipher_hex, cipher_decrypt);
-    string2hash(nonce_hex, nonce_decrypt);
-    printf("String: %s\nCipher:%s\n", message.c_str(), cipher_hex.c_str());
+    //Generate the key
+    generate_hash(decrypt_key, "salty chips", passphrase_input, 3);
     
-    int ret_code = crypto_secretbox_open_easy(decrypted, cipher_decrypt, sizeof cipher, nonce_decrypt, hash);
+    //Convert to raw from the database
+    string2hash(cipher_text, cipher_decrypt);
+    string2hash(nonce_text, nonce_decrypt);
+    
+    
+    
+    
+    printf("Cipher Length: %d\nMessage Length: %d\n", cipher_length, message_len);
+    
+    int ret_code = crypto_secretbox_open_easy(decrypted, cipher_decrypt, sizeof cipher_decrypt, nonce_decrypt, decrypt_key);
     if(ret_code != 0){
         printf("Failed\n");
     }
@@ -164,7 +186,6 @@ int main(){
         string casted = (const char*)decrypted;
         casted = casted.substr(0,message_len);
         cout <<  casted << endl;
-        
     }
     
     return 0;
