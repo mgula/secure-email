@@ -467,7 +467,6 @@ void check_messages() {
 
     }
     
-<<<<<<< HEAD
     if (prepared) {
         bind_text(1, current_user);
         
@@ -498,19 +497,7 @@ void check_messages() {
             
             rc = sqlite3_step(stmt);
         }
-=======
-    cout << "Would you like to write a message? (Y/N) ";
-    string write;
-    cin >> write;
-    if (write[0] == 'Y' || write[0] == 'y') {
-        //write();
-    } else {
-        return;
->>>>>>> 0ee1b8bfed3fac7fd1c6fb8f63f45c64f81fd440
     }
-    
-    //base for selecting to read/write a message
-    
 }
 
 void read_message() {
