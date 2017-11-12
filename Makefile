@@ -33,10 +33,10 @@ clean:
 # database commands
 
 dump_users:
-	sqlite3 $(DATABASE) "SELECT * FROM USERS"
+	sqlite3 $(DATABASE) "SELECT * FROM USERS;"
 	
 dump_messages:
-	sqlite3 $(DATABASE) "SELECT * FROM MESSAGES"
+	sqlite3 $(DATABASE) "SELECT * FROM MESSAGES;"
 
 wipe_users:
 	sqlite3 $(DATABASE) "DROP TABLE USERS;"
