@@ -54,7 +54,7 @@ bool add_message(string recipient, string cipher, string nonce);
 /*Methods that appear in main*/
 void register_user();
 void login();
-void display_messages();
+void check_messages();
 void read_message();
 void write_message();
 void help_info();
@@ -105,7 +105,7 @@ int main() {
             }
         } else {
             if (input[0] == 'C' || input[0] == 'c') {
-                display_messages();
+                check_messages();
                 
             } else if (input[0] == 'R' || input[0] == 'r') {
                 read_message();
@@ -209,6 +209,32 @@ void encrypt(const char* pass, char* buf, unsigned int ops) {
         buf = NULL;
     }
     return;
+}
+
+bool add_message(string recipient, string cipher, string nonce){
+    bool prepped = prepare_statement("INSERT INTO messages (SENDER, RECIPIENT, READ, MESSAGE, NONCE) VALUES (?, ?, ?, ?, ?)");
+    bool ret_value = false;
+    if(prepped){
+        bool bound_sender = bind_text(1, current_user);
+        bool bound_recipient = bind_text(2, recipient);
+        bool bound_read = bind_int(3, 0); //1 = True, 0 = false
+        bool bound_message = bind_text(4, cipher);
+        bool bound_nonce = bind_text(5, nonce);
+        
+        if(bound_sender && bound_recipient && bound_read && bound_message && bound_nonce){
+            int eval_code = sqlite3_step(stmt);
+            if (eval_code != SQLITE_DONE) {
+                printf("Could not step (execute). Error Code: %d. Error message: %s\n", eval_code, sqlite3_errmsg(db));
+                if (eval_code == SQLITE_ERROR) {
+                    printf("Something went wrong.\n");
+                }
+            } else {
+                    ret_value = true;
+                    printf("Message written\n");
+            }
+        }
+    }
+    return ret_value;
 }
 
 bool verify(const char* pass, char* hash) {
@@ -430,9 +456,18 @@ void login() {
     logged_in = true;
 }
 
-void display_messages() {
-    bool prepared = prepare_statement("select * from messages where recipient = ?");
+void check_messages() {
+    cout << "Hello! You have one new message from Boba! Would you like to read the message? (Y/N) ";
+    string read;
+    cin >> read;
+    if (read[0] == 'Y' || read[0] == 'y') {
+        //read();
+    } else if (read[0] == 'N' || read[0] == 'n') {
+        cout << "You have no new messages!";
+
+    }
     
+<<<<<<< HEAD
     if (prepared) {
         bind_text(1, current_user);
         
@@ -463,7 +498,19 @@ void display_messages() {
             
             rc = sqlite3_step(stmt);
         }
+=======
+    cout << "Would you like to write a message? (Y/N) ";
+    string write;
+    cin >> write;
+    if (write[0] == 'Y' || write[0] == 'y') {
+        //write();
+    } else {
+        return;
+>>>>>>> 0ee1b8bfed3fac7fd1c6fb8f63f45c64f81fd440
     }
+    
+    //base for selecting to read/write a message
+    
 }
 
 void read_message() {
@@ -539,10 +586,16 @@ void write_message() {
     string cipher_text = raw2string(cipher, cipher_length);
     string nonce_text = raw2string(nonce, NONCE_LEN);
     
-    printf("Cipher text: %s\n", cipher_text.c_str());
-    printf("Nonce text: %s\n", nonce_text.c_str());
+    // printf("Cipher text: %s\n", cipher_text.c_str());
+    // printf("Nonce text: %s\n", nonce_text.c_str());
     
-    
+    bool success = add_message(recipient,cipher_text,nonce_text);
+    if(success){
+        printf("Yay we did it!\n");
+    }
+    else{
+        printf("No! You failed!\n");
+    }
     //start for writing messages
     
 }
