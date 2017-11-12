@@ -219,7 +219,7 @@ bool verify(const char* pass, char* hash) {
 }
 
 bool check_existing(string user) {
-    bool prepared = prepare_statement("select * from user where name = ?");
+    bool prepared = prepare_statement("select * from users where name = ?");
     
     if (prepared) {
         bind_text(1, user);
@@ -352,7 +352,7 @@ void register_user() {
     //Unlock the sensitive memory region after encrypting
     sodium_munlock(password, sizeof password);
     
-    bool prepared = prepare_statement("insert into user ( NAME , PASSWORD, ITER ) values (?, ?, ?)");
+    bool prepared = prepare_statement("insert into users ( NAME , PASSWORD, ITER ) values (?, ?, ?)");
     
     if (prepared) {
         bool bind1 = bind_text(1, name);
@@ -404,7 +404,7 @@ void login() {
     
     /*Select user entry from database*/
     char hash_buffer[crypto_pwhash_scryptsalsa208sha256_STRBYTES];
-    prepare_statement("select * from user where name = ?");
+    prepare_statement("select * from users where name = ?");
     bind_text(1, name);
     sqlite3_step(stmt);
     
