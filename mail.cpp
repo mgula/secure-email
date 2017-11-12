@@ -9,6 +9,9 @@
 #define MAX_NAME_LENGTH 20
 #define MIN_NAME_LENGTH 1
 
+#define MAX_PASSPHRASE_LENGTH 20
+#define MIN_PASSPHRASE_LENGTH 1
+
 #define MAX_PASSWORD_LENGTH 30
 
 #define MAX_MESSAGE_LEN 500
@@ -216,7 +219,7 @@ bool verify(const char* pass, char* hash) {
 }
 
 bool check_existing(string user) {
-    bool prepared = prepare_statement("select * from users where name = ?");
+    bool prepared = prepare_statement("select * from user where name = ?");
     
     if (prepared) {
         bind_text(1, user);
@@ -349,7 +352,7 @@ void register_user() {
     //Unlock the sensitive memory region after encrypting
     sodium_munlock(password, sizeof password);
     
-    bool prepared = prepare_statement("insert into users ( NAME , PASSWORD, ITER ) values (?, ?, ?)");
+    bool prepared = prepare_statement("insert into user ( NAME , PASSWORD, ITER ) values (?, ?, ?)");
     
     if (prepared) {
         bool bind1 = bind_text(1, name);
@@ -401,7 +404,7 @@ void login() {
     
     /*Select user entry from database*/
     char hash_buffer[crypto_pwhash_scryptsalsa208sha256_STRBYTES];
-    prepare_statement("select * from users where name = ?");
+    prepare_statement("select * from user where name = ?");
     bind_text(1, name);
     sqlite3_step(stmt);
     
@@ -486,6 +489,19 @@ void write_message() {
         valid_message_length = message.length() >= MIN_MESSAGE_LEN && message.length() < MAX_MESSAGE_LEN;
     }
     
+    
+    cin.ignore();
+    
+    printf("Type your passphrase: ");
+    string passphrase;
+    cin >> passphrase;
+    
+    bool valid_passphrase_length = passphrase.length() >= MIN_PASSPHRASE_LENGTH && passphrase.length() < MAX_PASSPHRASE_LENGTH;
+    while (!valid_message_length) {
+        printf("Message must be at least %d character and less than %d characters.\n", MIN_PASSPHRASE_LENGTH, MAX_PASSPHRASE_LENGTH);
+        cin >> passphrase;
+        valid_message_length = passphrase.length() >= MIN_PASSPHRASE_LENGTH && passphrase.length() < MAX_PASSPHRASE_LENGTH;
+    }
     
     //start for writing messages
     
