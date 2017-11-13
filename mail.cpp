@@ -24,6 +24,7 @@
 #define NONCE_LEN crypto_secretbox_NONCEBYTES
 #define KEY_LEN crypto_secretbox_KEYBYTES
 
+#define SALT "salty chips"
 using namespace std;
 
 bool logged_in = false;
@@ -553,7 +554,7 @@ void read_message() {
         unsigned char key[KEY_LEN];
         
         //This dumps the bytes into the key buffer
-        generate_key(key, "salty chips", passphrase, 3);
+        generate_key(key, SALT, passphrase, 3);
         
         string2raw(cipher_text, cipher);
         string2raw(nonce_text, nonce);
@@ -630,7 +631,7 @@ void write_message() {
     unsigned char key[KEY_LEN];
     
     //This dumps the bytes into the key buffer
-    generate_key(key, "salty chips", passphrase, 3);
+    generate_key(key, SALT, passphrase, 3);
     
     //Compute the ciphertext length from the length of the message
     int message_length = message.length();
