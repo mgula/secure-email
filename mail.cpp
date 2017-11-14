@@ -418,8 +418,6 @@ void login() {
         cin.getline(password, sizeof password);
     }
     
-    int tries = 0;
-    
     /*Select user entry from database*/
     bool prepared = prepare_statement("SELECT PASSWORD FROM USERS WHERE NAME = ?;");
     
@@ -435,6 +433,8 @@ void login() {
     char* db_hash = (char*)sqlite3_column_text(stmt, 0);
     
     bool correct_pass = verify(password, db_hash);
+    
+    int tries = 0;
     
     while (!correct_pass) {
         tries++;
@@ -494,6 +494,21 @@ void display_messages() {
 }
 
 void read_message() {
+    bool prepared = prepare_statement("SELECT ID FROM MESSAGES WHERE RECIPIENT = ?;");
+    
+    if (prepared) {
+        bool bound_user = bind_text(1, current_user);
+        
+        if (bound_user) {
+            int rc = sqlite3_step(stmt);
+            
+            if (sqlite3_column_text(stmt, 0) == NULL) {
+                printf("You have no messages to select from.\n");
+                return;
+            }
+        }
+    }
+    
     int id;
     
     while (true) {
@@ -513,7 +528,7 @@ void read_message() {
         }
     }
     
-    bool prepared = prepare_statement("SELECT READ, MESSAGE, NONCE FROM MESSAGES WHERE RECIPIENT = ? AND ID = ?;");
+    prepared = prepare_statement("SELECT READ, MESSAGE, NONCE FROM MESSAGES WHERE RECIPIENT = ? AND ID = ?;");
     
     if (prepared) {
         
