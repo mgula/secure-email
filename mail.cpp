@@ -5,7 +5,7 @@
 #include <sodium.h>
 #include <limits> 
 
-#define AMT_OPERATIONS 2<<22
+#define AMT_OPERATIONS 2 << 22
 
 #define MAX_NAME_LENGTH 20
 #define MIN_NAME_LENGTH 1
@@ -48,8 +48,8 @@ void encrypt(const char* pass, char*, unsigned int);
 bool verify(const char* pass, char* hash);
 bool check_existing(string user);
 unsigned int get_amt_operations();
-string raw2string(unsigned char* input, unsigned int input_size);
-void string2raw(string in, unsigned char* out);
+string raw_to_string(unsigned char* input, unsigned int input_size);
+void string_to_raw(string in, unsigned char* out);
 void generate_key(unsigned char* , const char* , string , unsigned int );
 bool add_message(string recipient, string cipher, string nonce);
 
@@ -61,6 +61,8 @@ void read_message();
 void write_message();
 void help_info();
 
+/*Add admins
+add sent folder*/
 int main() {
     /*Check sodium status*/
     if (sodium_init() < 0) {
@@ -157,17 +159,17 @@ void sql_stmt(const char* stmt) {
 }
 
 bool prepare_statement(const char* query) {
-    int return_code = sqlite3_prepare(db, query, -1, &stmt, NULL);
-    if (return_code != SQLITE_OK) {
-        printf("Could not prepare statement. Return code: %d\n", return_code);
+    rc = sqlite3_prepare(db, query, -1, &stmt, NULL);
+    if (rc != SQLITE_OK) {
+        printf("Could not prepare statement. Return code: %d\n", rc);
         return false;
     }
     return true;
 }
 
 bool bind_int(int index, int value){
-    int ret_code = sqlite3_bind_int(stmt, index, value);
-    if (ret_code != SQLITE_OK) {
+    rc = sqlite3_bind_int(stmt, index, value);
+    if (rc != SQLITE_OK) {
         printf("Error binding statement parameters.\n");
         return false;
     }
@@ -175,8 +177,8 @@ bool bind_int(int index, int value){
 }
 
 bool bind_text(int index, string text) {
-    int ret_code = sqlite3_bind_text(stmt, index, text.c_str(), text.length(), SQLITE_STATIC);
-    if (ret_code != SQLITE_OK) {
+    rc = sqlite3_bind_text(stmt, index, text.c_str(), text.length(), SQLITE_STATIC);
+    if (rc != SQLITE_OK) {
         printf("Error binding statement parameters.\n");
         return false;
     }
@@ -184,8 +186,8 @@ bool bind_text(int index, string text) {
 }
 
 bool bind_text(int index, char* text, int len) {
-    int ret_code = sqlite3_bind_text(stmt, index, text, len, SQLITE_STATIC);
-    if (ret_code != SQLITE_OK) {
+    rc = sqlite3_bind_text(stmt, index, text, len, SQLITE_STATIC);
+    if (rc != SQLITE_OK) {
         printf("Error binding statement parameters.\n");
         return false;
     }
@@ -193,13 +195,13 @@ bool bind_text(int index, char* text, int len) {
 }
 
 void encrypt(const char* pass, char* buf, unsigned int ops) {
-    int ret_value = crypto_pwhash_scryptsalsa208sha256_str(buf, 
+    rc = crypto_pwhash_scryptsalsa208sha256_str(buf, 
         pass, 
         strlen(pass), 
         ops, 
         crypto_pwhash_scryptsalsa208sha256_MEMLIMIT_MIN);
         
-    if (ret_value != 0) {
+    if (rc != 0) {
         buf = NULL;
     }
 }
@@ -209,9 +211,9 @@ bool verify(const char* pass, char* hash) {
         return false;
     }
     
-    int ret_value = crypto_pwhash_scryptsalsa208sha256_str_verify(hash, pass, strlen(pass));
+    rc = crypto_pwhash_scryptsalsa208sha256_str_verify(hash, pass, strlen(pass));
     
-    if (ret_value != 0) {
+    if (rc != 0) {
         return false;
     }
     return true;
@@ -238,7 +240,7 @@ unsigned int get_amt_operations(){
     unsigned int fac, divi, ran, sum = 0;
     
     fac = AMT_OPERATIONS;
-    divi = fac/10;
+    divi = fac / 10;
     ran = randombytes_uniform(divi);
     
     if (true) {
@@ -250,7 +252,7 @@ unsigned int get_amt_operations(){
     return sum;
 }
 
-string raw2string(unsigned char* input, unsigned int input_size) {
+string raw_to_string(unsigned char* input, unsigned int input_size) {
     //the output needs to have room for 2*input_size chars
     char byte[2];
     string output;
@@ -263,7 +265,7 @@ string raw2string(unsigned char* input, unsigned int input_size) {
     return output;
 }
 
-void string2raw(string in, unsigned char* out) {
+void string_to_raw(string in, unsigned char* out) {
     //the output needs to have room for input_size/2 chars
     unsigned int i, t, hn, ln;
     for (t = 0,i = 0; i < in.length(); i += 2, ++t) {
@@ -292,7 +294,7 @@ void generate_key(unsigned char* hash, const char* salt, string passphrase, unsi
                        
     for (int i = 0; i < iterations; i++) {
         input_message_string = salt;
-        string hash_string = raw2string(hash, hash_size);
+        string hash_string = raw_to_string(hash, hash_size);
         input_message_string.append(hash_string);
         input_message_string.append("0");
         const unsigned char* input_message = reinterpret_cast<const unsigned char*>(input_message_string.c_str());
@@ -316,10 +318,10 @@ bool add_message(string recipient, string cipher, string nonce) {
         bool bound_nonce = bind_text(5, nonce);
         
         if (bound_sender && bound_recipient && bound_read && bound_message && bound_nonce) {
-            int eval_code = sqlite3_step(stmt);
-            if (eval_code != SQLITE_DONE) {
-                printf("Could not step (execute). Error Code: %d. Error message: %s\n", eval_code, sqlite3_errmsg(db));
-                if (eval_code == SQLITE_ERROR) {
+            rc = sqlite3_step(stmt);
+            if (rc != SQLITE_DONE) {
+                printf("Could not step (execute). Error Code: %d. Error message: %s\n", rc, sqlite3_errmsg(db));
+                if (rc == SQLITE_ERROR) {
                     printf("Something went wrong.\n");
                 }
             } else {
@@ -378,10 +380,10 @@ void register_user() {
         bool bound_ops = bind_int(3, amt_operations);
         
         if (bound_name && bound_hash && bound_ops) {
-            int eval_code = sqlite3_step(stmt);
-            if (eval_code != SQLITE_DONE) {
-                printf("Could not step (execute). Error Code: %d. Error message: %s\n", eval_code, sqlite3_errmsg(db));
-                if (eval_code == SQLITE_ERROR) {
+            rc = sqlite3_step(stmt);
+            if (rc != SQLITE_DONE) {
+                printf("Could not step (execute). Error Code: %d. Error message: %s\n", rc, sqlite3_errmsg(db));
+                if (rc == SQLITE_ERROR) {
                     printf("Something went wrong.\n");
                 } 
             } else {
@@ -432,6 +434,12 @@ void login() {
     
     char* db_hash = (char*)sqlite3_column_text(stmt, 0);
     
+    if (db_hash == NULL) {
+        printf("Error accessing database.\n");
+        sodium_munlock(password, sizeof password);
+        return;
+    }
+    
     bool correct_pass = verify(password, db_hash);
     
     int tries = 0;
@@ -462,7 +470,7 @@ void display_messages() {
         bool bound_user = bind_text(1, current_user);
         
         if (bound_user) {
-            int rc = sqlite3_step(stmt);
+            rc = sqlite3_step(stmt);
             
             if (sqlite3_column_text(stmt, 0) == NULL) {
                 printf("No messages at this time.\n");
@@ -500,13 +508,17 @@ void read_message() {
         bool bound_user = bind_text(1, current_user);
         
         if (bound_user) {
-            int rc = sqlite3_step(stmt);
-            
-            if (sqlite3_column_text(stmt, 0) == NULL) {
-                printf("You have no messages to select from.\n");
-                return;
-            }
+            sqlite3_step(stmt); // Don't check return code here
+        } else {
+            return;
         }
+    } else {
+        return;
+    }
+    
+    if (sqlite3_column_text(stmt, 0) == NULL) {
+        printf("You have no messages to select from.\n");
+        return;
     }
     
     int id;
@@ -532,11 +544,15 @@ void read_message() {
     
     if (prepared) {
         
-        bind_text(1, current_user);
-        bind_int(2, id);
+        bool bound_name = bind_text(1, current_user);
+        bool bound_id = bind_int(2, id);
         
-        sqlite3_step(stmt);
-        
+        if (bound_name && bound_id) {
+            sqlite3_step(stmt); // or here
+        } else {
+            return;
+        }
+            
         if (sqlite3_column_text(stmt, 0) == NULL) {
             printf("Could not retrieve message with ID %d.\n", id);
             return;
@@ -569,12 +585,12 @@ void read_message() {
         
         generate_key(key, SALT, passphrase, 3); // This dumps the bytes into the key buffer
         
-        string2raw(cipher_text, cipher);
-        string2raw(nonce_text, nonce);
+        string_to_raw(cipher_text, cipher);
+        string_to_raw(nonce_text, nonce);
         
-        int ret_code = crypto_secretbox_open_easy(decrypt, cipher, sizeof(cipher), nonce, key);
+        rc = crypto_secretbox_open_easy(decrypt, cipher, sizeof(cipher), nonce, key);
         
-        if (ret_code != 0) {
+        if (rc != 0) {
             printf("Incorrect passphrase.\n");
         } else {
             string casted = (const char*)decrypt;
@@ -584,11 +600,17 @@ void read_message() {
             int read = sqlite3_column_int(stmt, 0);
             
             if (read == 0) {
-                prepare_statement("UPDATE MESSAGES SET READ = 1 WHERE ID = ?;"); // Set the read flag to true
-                bind_int(1,id);
-                int rc = sqlite3_step(stmt);
-                if (rc == SQLITE_DONE) {
-                    printf("Message marked as read.\n");
+                prepared = prepare_statement("UPDATE MESSAGES SET READ = 1 WHERE ID = ?;"); // Set the read flag to true
+                if (prepared) {
+                    bound_id = bind_int(1, id);
+                    if (bound_id) {
+                        rc = sqlite3_step(stmt);
+                        if (rc == SQLITE_DONE) {
+                            printf("Message marked as read.\n");
+                        } else {
+                            printf("Could not mark message as read.\n");
+                        }
+                    }
                 }
             }
         }
@@ -653,8 +675,8 @@ void write_message() {
     
     crypto_secretbox_easy(cipher, mess, message_length, nonce, key);
     
-    string cipher_text = raw2string(cipher, cipher_length);
-    string nonce_text = raw2string(nonce, NONCE_LEN);
+    string cipher_text = raw_to_string(cipher, cipher_length);
+    string nonce_text = raw_to_string(nonce, NONCE_LEN);
     
     add_message(recipient, cipher_text, nonce_text); // Save this cipher in db
 }
