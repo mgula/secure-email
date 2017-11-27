@@ -243,7 +243,7 @@ unsigned int get_amt_operations(){
     divi = fac / 10;
     ran = randombytes_uniform(divi);
     
-    if (true) {
+    if (sign) {
         sum = fac + ran;
     } else {
         sum = fac - ran;
