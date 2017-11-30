@@ -258,7 +258,10 @@ string raw_to_string(unsigned char* input, unsigned int input_size) {
     string output;
     
     for (int i = 0; i < input_size; i++) {
-        sprintf(byte, "%02X", input[i]);
+        int r = sprintf(byte, "%02X", input[i]);
+        if (r < 0) {
+            printf("Error: raw_to_string unable to write characters.\n");
+        }
         output.append(byte);
     }
     
