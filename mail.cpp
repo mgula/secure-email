@@ -7,8 +7,6 @@
 
 #define AMT_OPERATIONS 2 << 22
 
-#define MAX_INPUT_LENGTH 10
-
 #define MAX_NAME_LENGTH 20
 #define MIN_NAME_LENGTH 1
 
