@@ -7,6 +7,8 @@
 
 #define AMT_OPERATIONS 2 << 22
 
+#define MAX_INPUT_LENGTH 10
+
 #define MAX_NAME_LENGTH 20
 #define MIN_NAME_LENGTH 1
 
@@ -80,7 +82,7 @@ int main() {
     string input;
 
     while (1) {
-        cin >> input;
+        getline(cin, input);
         
         /*Check for quit*/
         if (input[0] == 'Q' || input[0] == 'q') {
@@ -339,7 +341,7 @@ bool add_message(string recipient, string cipher, string nonce) {
 void register_user() {
     printf("Enter a username: ");
     string name;
-    cin >> name;
+    getline(cin, name);
     
     bool valid_length = name.length() > 0 && name.length() < MAX_NAME_LENGTH;
     bool name_taken = check_existing(name);
@@ -351,13 +353,12 @@ void register_user() {
             printf("The username %s is taken.\n", name.c_str());
         }
         printf("Enter a username: ");
-        cin >> name;
+        getline(cin, name);
         valid_length = name.length() > 0 && name.length() < MAX_NAME_LENGTH;
         name_taken = check_existing(name);
     }
     
     printf("Select a password: ");
-    cin.ignore(); // ignore the newline character left by cin >> user
     char password[32];
     cin.getline(password, 32);
     
@@ -399,12 +400,12 @@ void register_user() {
 void login() {
     printf("Enter your username: ");
     string name;
-    cin >> name;
+    getline(cin, name);
     
     bool valid_length = name.length() > 0 && name.length() < MAX_NAME_LENGTH;
     while (!valid_length) {
         printf("Name must be at least 1 character and less than 20 characters.\n");
-        cin >> name;
+        getline(cin, name);
         valid_length = name.length() > 0 && name.length() < MAX_NAME_LENGTH;
     }
     
@@ -413,14 +414,13 @@ void login() {
         return;
     }
     
-    cin.ignore();
     printf("Enter your password: ");
     char password[MAX_PASSWORD_LENGTH];
-    cin.getline(password, sizeof password);
+    cin.getline(password, sizeof(password));
     
     while (strlen(password) == 0 || strlen(password) >= MAX_PASSWORD_LENGTH) {
         printf("Entered password doesn't meet length requirements.\nPassword must be at least 1 character and less than 30 characters.\n");
-        cin.getline(password, sizeof password);
+        cin.getline(password, sizeof(password));
     }
     
     /*Select user entry from database*/
@@ -562,14 +562,15 @@ void read_message() {
         }
         
         printf("Type your shared passphrase: ");
+        cin.ignore();
         string passphrase;
-        cin >> passphrase;
+        getline(cin, passphrase);
                 
         bool valid_passphrase_length = passphrase.length() >= MIN_PASSPHRASE_LENGTH && passphrase.length() < MAX_PASSPHRASE_LENGTH;
         
         while (!valid_passphrase_length) {
             printf("Shared passphrase must be at least %d characters and less than %d characters.\n", MIN_PASSPHRASE_LENGTH, MAX_PASSPHRASE_LENGTH);
-            cin >> passphrase;
+            getline(cin, passphrase);
             valid_passphrase_length = passphrase.length() >= MIN_PASSPHRASE_LENGTH && passphrase.length() < MAX_PASSPHRASE_LENGTH;
         }
         
@@ -623,13 +624,13 @@ void read_message() {
 void write_message() {
     printf("Enter the recipient's username: ");
     string recipient;
-    cin >> recipient;
+    getline(cin, recipient);
     
     bool valid_username_length = recipient.length() >= MIN_NAME_LENGTH && recipient.length() < MAX_NAME_LENGTH;
     
     while (!valid_username_length) {
         printf("Name must be at least %d character and less than %d characters.\n", MIN_NAME_LENGTH, MAX_NAME_LENGTH);
-        cin >> recipient;
+        getline(cin, recipient);
         valid_username_length = recipient.length() >= MIN_NAME_LENGTH && recipient.length() < MAX_NAME_LENGTH;
     }
     
@@ -637,8 +638,6 @@ void write_message() {
         printf("The username %s does not exist.\n", recipient.c_str());
         return;
     }
-    
-    cin.ignore();
     
     printf("Type your message: ");
     string message;
@@ -653,12 +652,12 @@ void write_message() {
     
     printf("Type your passphrase: ");
     string passphrase;
-    cin >> passphrase;
+    getline(cin, passphrase);
     
     bool valid_passphrase_length = passphrase.length() >= MIN_PASSPHRASE_LENGTH && passphrase.length() < MAX_PASSPHRASE_LENGTH;
     while (!valid_passphrase_length) {
         printf("Message must be at least %d character and less than %d characters.\n", MIN_PASSPHRASE_LENGTH, MAX_PASSPHRASE_LENGTH);
-        cin >> passphrase;
+        getline(cin, passphrase);
         valid_passphrase_length = passphrase.length() >= MIN_PASSPHRASE_LENGTH && passphrase.length() < MAX_PASSPHRASE_LENGTH;
     }
     
