@@ -541,6 +541,8 @@ void read_message() {
         }
     }
     
+    cin.ignore();
+    
     prepared = prepare_statement("SELECT READ, MESSAGE, NONCE FROM MESSAGES WHERE RECIPIENT = ? AND ID = ?;");
     
     if (prepared) {
@@ -560,7 +562,6 @@ void read_message() {
         }
         
         printf("Type your shared passphrase: ");
-        cin.ignore();
         string passphrase;
         getline(cin, passphrase);
                 
