@@ -357,22 +357,22 @@ void register_user() {
     }
     
     printf("Select a password: ");
-    char password[32];
-    cin.getline(password, 32);
+    char password[200];
+    cin.getline(password, 200);
     
     while (strlen(password) == 0 || strlen(password) >= MAX_PASSWORD_LENGTH) {
         printf("Password must be at least 1 character and less than 30 characters.\n");
-        cin.getline(password, 32);
+        cin.getline(password, 200);
     }
     
-    sodium_mlock(password, sizeof password); // Lock the sensitive memory region
+    sodium_mlock(password, sizeof(password)); // Lock the sensitive memory region
     
     unsigned int amt_operations = get_amt_operations();
     char hash_buffer[crypto_pwhash_scryptsalsa208sha256_STRBYTES];
     
     encrypt(password, hash_buffer, amt_operations);
     
-    sodium_munlock(password, sizeof password); // Unlock the sensitive memory region after encrypting
+    sodium_munlock(password, sizeof(password)); // Unlock the sensitive memory region after encrypting
     
     bool prepared = prepare_statement("INSERT INTO USERS ( NAME , PASSWORD, ITER ) VALUES (?, ?, ?);");
     
@@ -413,7 +413,7 @@ void login() {
     }
     
     printf("Enter your password: ");
-    char password[MAX_PASSWORD_LENGTH];
+    char password[200];
     cin.getline(password, sizeof(password));
     
     while (strlen(password) == 0 || strlen(password) >= MAX_PASSWORD_LENGTH) {
@@ -431,13 +431,13 @@ void login() {
         }
     }
     
-    sodium_mlock(password, sizeof password);
+    sodium_mlock(password, sizeof(password));
     
     char* db_hash = (char*)sqlite3_column_text(stmt, 0);
     
     if (db_hash == NULL) {
         printf("Error accessing database.\n");
-        sodium_munlock(password, sizeof password);
+        sodium_munlock(password, sizeof(password));
         return;
     }
     
@@ -457,7 +457,7 @@ void login() {
         }
     }
     
-    sodium_munlock(password, sizeof password);
+    sodium_munlock(password, sizeof(password));
     
     current_user = name;
     logged_in = true;
